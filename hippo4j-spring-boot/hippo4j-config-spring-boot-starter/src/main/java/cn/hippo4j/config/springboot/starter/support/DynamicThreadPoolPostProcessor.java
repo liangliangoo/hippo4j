@@ -46,6 +46,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Dynamic thread-pool post processor.
+ * 通过spring 扩展机制 BeanPostProcessor 在bean实例化之后，处理相关的扩展点
  */
 @Slf4j
 @AllArgsConstructor
@@ -79,6 +80,7 @@ public final class DynamicThreadPoolPostProcessor implements BeanPostProcessor {
             if ((dynamicThreadPoolExecutor = DynamicThreadPoolAdapterChoose.unwrap(bean)) == null) {
                 dynamicThreadPoolExecutor = (DynamicThreadPoolExecutor) bean;
             }
+            // 对线程池包装处理
             DynamicThreadPoolWrapper wrap = new DynamicThreadPoolWrapper(dynamicThreadPoolExecutor.getThreadPoolId(), dynamicThreadPoolExecutor);
             ThreadPoolExecutor remoteThreadPoolExecutor = fillPoolAndRegister(wrap);
             DynamicThreadPoolAdapterChoose.replace(bean, remoteThreadPoolExecutor);
@@ -100,6 +102,7 @@ public final class DynamicThreadPoolPostProcessor implements BeanPostProcessor {
         String threadPoolId = dynamicThreadPoolWrapper.getThreadPoolId();
         ThreadPoolExecutor executor = dynamicThreadPoolWrapper.getExecutor();
         ExecutorProperties executorProperties = null;
+        // 替换线程池的参数 统一使用香米配置 或者 配置中心的参数
         if (configProperties.getExecutors() != null) {
             executorProperties = configProperties.getExecutors()
                     .stream()
@@ -107,6 +110,7 @@ public final class DynamicThreadPoolPostProcessor implements BeanPostProcessor {
                     .findFirst()
                     .orElseThrow(() -> new RuntimeException("The thread pool id does not exist in the configuration."));
             try {
+                // 线程池 核心参数的替换
                 threadPoolParamReplace(executor, executorProperties);
             } catch (Exception ex) {
                 log.error("Failed to initialize thread pool configuration.", ex);
@@ -116,6 +120,7 @@ public final class DynamicThreadPoolPostProcessor implements BeanPostProcessor {
             ThreadPoolNotifyAlarm threadPoolNotifyAlarm = buildThreadPoolNotifyAlarm(executorProperties);
             GlobalNotifyAlarmManage.put(threadPoolId, threadPoolNotifyAlarm);
         }
+        // 将该线程池注册到 线程池管理器当中
         GlobalThreadPoolManage.registerPool(dynamicThreadPoolWrapper.getThreadPoolId(), dynamicThreadPoolWrapper);
         GlobalCoreThreadPoolManage.register(
                 threadPoolId,
